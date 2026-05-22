@@ -1,0 +1,9 @@
+version = 0.1
+[default.deploy.parameters]
+stack_name = "liga-app"
+resolve_s3 = true
+s3_prefix = "liga-app"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+image_repositories = ["SeleniumFunction=376129844165.dkr.ecr.us-east-1.amazonaws.com/ligaapp46ce2d09/seleniumfunction930ef00frepo"]
