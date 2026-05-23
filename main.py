@@ -12,7 +12,7 @@ import boto3
 
 def handler(event, context):
     today_date = datetime.now(ZoneInfo("America/Bogota"))
-    target_date = (today_date + timedelta(days=2)).strftime('%Y-%m-%d') + "/60/"
+    target_date = (today_date + timedelta(days=3)).strftime('%Y-%m-%d') + "/60/"
     url = "https://reservadeportes.com/LigaTenisAtlantico.html"
 
     chrome_options = Options()
@@ -31,29 +31,29 @@ def handler(event, context):
 
     service = Service(executable_path="/opt/chromedriver")
     driver = webdriver.Chrome(service=service, options=chrome_options)
+    email, password, court = get_variables_from_s3("juan-s3-general", "variables.json")
 
-    login(driver)
+    try:
+        login(driver, email, password)
 
-    while True:
-        current_time = datetime.now(ZoneInfo("America/Bogota")).hour
-        if current_time >= 9:
-            time.sleep(0.15)
-            driver.refresh()
-            break
-    
-    print("Start booking...")
-    book_court(driver, target_date)
-    title= driver.title
-    driver.quit()
+        while True:
+            current_time = datetime.now(ZoneInfo("America/Bogota")).hour
+            if current_time >= 12:
+                time.sleep(0.15)
+                driver.refresh()
+                break
+        
+        print("Start booking...")
+        book_court(driver, target_date, court)
+        
+        return {"statusCode": 200, "body": "Script executed properly"}
 
-    return {
-        "statusCode": 200,
-        "body": json.dumps(
-            {
-                "title": title
-            }
-        ),
-    }
+    except Exception as e:
+        print(f"Handler error: {e}")
+        raise
+
+    finally:
+        driver.quit()
 
 def get_variables_from_s3(bucket, key):
     s3 = boto3.client("s3")
@@ -62,10 +62,9 @@ def get_variables_from_s3(bucket, key):
     data = json.loads(content)
     return data['email'], data['password'], data['court']
 
-def login(driver):
+def login(driver, email_value, password_value):
     driver.get("https://reservadeportes.com/LigaTenisAtlantico.html")
     try:
-        email_value, password_value, court = get_variables_from_s3("juan-s3-general", "variables.json")
         email = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "email")))
         email.send_keys(email_value)
         
@@ -79,9 +78,8 @@ def login(driver):
     except Exception as e:
         print(f"Login error: {e}")
 
-def book_court(driver, target_date):
+def book_court(driver, target_date, court):
     try:
-        email, password, court = get_variables_from_s3("juan-s3-general", "variables.json")
         driver.get(f"https://reservadeportes.com/calendario/LigaTenisAtlantico/1/{target_date}")
         print(target_date)
 
