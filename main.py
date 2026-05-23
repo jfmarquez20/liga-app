@@ -12,7 +12,7 @@ import boto3
 
 def handler(event, context):
     today_date = datetime.now(ZoneInfo("America/Bogota"))
-    target_date = (today_date + timedelta(days=3)).strftime('%Y-%m-%d') + "/60/"
+    target_date = (today_date + timedelta(days=2)).strftime('%Y-%m-%d') + "/60/"
     url = "https://reservadeportes.com/LigaTenisAtlantico.html"
 
     chrome_options = Options()
@@ -36,7 +36,7 @@ def handler(event, context):
 
     while True:
         current_time = datetime.now(ZoneInfo("America/Bogota")).hour
-        if current_time >= 12:
+        if current_time >= 9:
             time.sleep(0.15)
             driver.refresh()
             break
@@ -96,14 +96,14 @@ def book_court(driver, target_date):
         driver.get(court_link.get_property('href'))
 
         checkbox = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "/html/body/main/div[3]/div/div/div/form/p[2]/input"))
+            EC.element_to_be_clickable((By.XPATH, "//html/body/main/div[2]/div/div/div/form/p[2]/label/input"))
         )
         driver.execute_script("arguments[0].scrollIntoView(true);", checkbox)
         time.sleep(0.4)
         checkbox.click()
         
         submit_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "/html/body/main/div[3]/div/div/div/form/center/input"))
+            EC.element_to_be_clickable((By.XPATH, "/html/body/main/div[2]/div/div/div/div/button"))
         )
         driver.execute_script("arguments[0].scrollIntoView(true);", submit_button)
         time.sleep(0.7)
