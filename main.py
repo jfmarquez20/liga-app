@@ -9,12 +9,9 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import time
 import boto3
+import traceback
 
 def handler(event, context):
-    today_date = datetime.now(ZoneInfo("America/Bogota"))
-    target_date = (today_date + timedelta(days=3)).strftime('%Y-%m-%d') + "/60/"
-    url = "https://reservadeportes.com/LigaTenisAtlantico.html"
-
     chrome_options = Options()
     chrome_options.binary_location = "/opt/chrome/chrome"
     chrome_options.add_argument("--headless")
@@ -33,6 +30,45 @@ def handler(event, context):
     driver = webdriver.Chrome(service=service, options=chrome_options)
     email, password, court = get_variables_from_s3("juan-s3-general", "variables.json")
 
+    if event.get('request', {}).get('type') == 'IntentRequest':
+            intent_name = event['request']['intent']['name']
+            print(event['request']['intent']['slots'])
+            if intent_name == 'courtSchedule':
+                court_name = event['request']['intent']['slots']['court']['value'].lower()
+                date = event['request']['intent']['slots']['day']['value']
+                time = event['request']['intent']['slots']['time']['value']
+
+                if not date:
+                    return build_alexa_response("Mani habla bien, no te entendí el día")
+                if not court_name:
+                    return build_alexa_response("Mani habla bien, no te entendí la cancha")
+                if not time:
+                    return build_alexa_response("Mani habla bien, no te entendí la hora")
+
+                COURT_MAP = {
+                    "parque de raquetas 1": "Parque de Raquetas 1",
+                    "parque de raquetas 2": "Parque de Raquetas 2",
+                    "parque de raquetas 3": "Parque de Raquetas 3",
+                    "el golf 1": "El Golf 1",
+                    "el golf 2": "El Golf 2",
+                }
+
+                target_court = COURT_MAP.get(court_name)
+                target_date = date + "/60/"
+
+                court = f"//div[contains(@class,'shadow') and .//h4[text()='{target_court}']]//a[contains(@href,'/{time}/60/')]"
+                run_booking_alexa(driver, target_date, court)
+                return build_alexa_response("Listo compae. Sale tenisito")
+            else:
+                return build_alexa_response("Mani pasó algo. Revisa tu manualmente pa ve")
+    else:
+            # Called from EventBridge
+            today_date = datetime.now(ZoneInfo("America/Bogota"))
+            target_date = (today_date + timedelta(days=3)).strftime('%Y-%m-%d') + "/60/"
+            run_booking_scheduler(driver, email, password, target_date, court)
+
+
+def run_booking_scheduler(driver, email, password, target_date, court):
     try:
         login(driver, email, password)
 
@@ -54,6 +90,36 @@ def handler(event, context):
 
     finally:
         driver.quit()
+
+
+def run_booking_alexa(driver, target_date, court):
+    try:
+        email = "jfme050@gmail.com"
+        password = "1010105554"
+        login(driver, email, password)
+        book_court(driver, target_date, court)
+        
+        return {"statusCode": 200, "body": "Script executed properly"}
+
+    except Exception as e:
+        print(f"Handler error: {e}")
+        raise
+
+    finally:
+        driver.quit()
+
+
+def build_alexa_response(message):
+    return {
+        "version": "1.0",
+        "response": {
+            "outputSpeech": {
+                "type": "PlainText",
+                "text": message
+            },
+            "shouldEndSession": True
+        }
+    }
 
 def get_variables_from_s3(bucket, key):
     s3 = boto3.client("s3")
