@@ -148,14 +148,11 @@ def book_court(driver, target_date, court):
     try:
         driver.get(f"https://reservadeportes.com/calendario/LigaTenisAtlantico/1/{target_date}")
         print(target_date)
-
-        WebDriverWait(driver, 10).until(
-            lambda d: len(
-            d.find_elements(By.CSS_SELECTOR, "a.slot-btn.btn-success")
-            ) > 0
+        
+        court_link = WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.XPATH, court))
         )
         
-        court_link = driver.find_element(By.XPATH, court)
         print(court_link.get_attribute('href'))
         driver.get(court_link.get_property('href'))
 
@@ -173,12 +170,8 @@ def book_court(driver, target_date, court):
         time.sleep(0.7)
         submit_button.click()
         time.sleep(2)
-        
-        try:
-            status = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "/html/body/main/div[3]/div/div/div/form/center/h1/div")))
-            print(status.text)
-        except:
-            print("Booking completed!")
 
     except Exception as e:  
         print(f"Booking error: {e}")
+        print(traceback.format_exc())
+        raise
