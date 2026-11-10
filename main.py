@@ -4,6 +4,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 import json
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -146,13 +147,41 @@ def login(driver, email_value, password_value):
 
 def book_court(driver, target_date, court):
     try:
-        driver.get(f"https://reservadeportes.com/calendario/LigaTenisAtlantico/1/{target_date}")
+        #driver.get(f"https://reservadeportes.com/calendario/LigaTenisAtlantico/1/{target_date}")
+        #print(target_date)
+        
+        #court_link = WebDriverWait(driver, 15).until(
+        #    EC.presence_of_element_located((By.XPATH, court))
+        #)
+
+        url = f"https://reservadeportes.com/calendario/LigaTenisAtlantico/1/{target_date}"
         print(target_date)
-        
-        court_link = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.XPATH, court))
-        )
-        
+
+        court_link = None
+        for attempt in range(1, 21):
+            driver.get(url)
+            try:
+                court_link = WebDriverWait(driver, 3).until(
+                    EC.presence_of_element_located((By.XPATH, court))
+                )
+                print(f"Found court on attempt {attempt}")
+                break
+
+            except TimeoutException:
+                print(f"Attempt {attempt}: Court not there yet, reloading the page...")
+                if attempt == 1:
+                    print(f"URL: {driver.current_url} | TITLE: {driver.title}")
+                    links = driver.find_elements(By.XPATH, "//a[contains(@href,'/60/')]")
+                    print(f"Slot links on page: {len(links)}")
+                    for a in links[:20]:
+                        print("   ", a.get_attribute("href"))
+                    driver.save_screenshot("/tmp/fail.png")
+                    boto3.client("s3").upload_file("/tmp/fail.png", "juan-s3-general", "debug/fail.png")
+
+        if court_link is None:
+            raise TimeoutException("Court link never appeared after 20 attempts")
+
+
         print(court_link.get_attribute('href'))
         driver.get(court_link.get_property('href'))
 
